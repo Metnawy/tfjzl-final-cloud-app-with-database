@@ -126,6 +126,7 @@ def extract_answers(request):
 
 
 def submit(request, course_id):
+
     course = get_object_or_404(Course, pk=course_id)
 
     user = request.user
@@ -135,22 +136,23 @@ def submit(request, course_id):
         course=course
     )
 
-    # create submission
+    # create submission object
     submission = Submission.objects.create(
         enrollment=enrollment
     )
 
-    # get selected choice IDs
+    # get selected choice ids
     choice_ids = extract_answers(request)
 
-    # convert IDs → Choice objects
+    # get choice objects
     choices = Choice.objects.filter(id__in=choice_ids)
 
-    # attach choices to submission (ManyToMany)
+    # save selected choices
     submission.choices.set(choices)
 
     submission_id = submission.id
 
+    # redirect to exam result page
     return redirect(
         reverse(
             'onlinecourse:exam_result',
@@ -158,6 +160,46 @@ def submit(request, course_id):
         )
     )
 
+
+# -----------------------------------
+# Show Exam Result View
+# -----------------------------------
+def show_exam_result(request, course_id, submission_id):
+
+    course = get_object_or_404(Course, pk=course_id)
+
+    submission = get_object_or_404(
+        Submission,
+        pk=submission_id
+    )
+
+    choices = submission.choices.all()
+
+    selected_ids = []
+
+    for choice in choices:
+        selected_ids.append(choice.id)
+
+    total_score = 0
+
+    questions = course.question_set.all()
+
+    for question in questions:
+
+        if question.is_get_score(selected_ids):
+            total_score += question.grade
+
+    context = {
+        'course': course,
+        'submission': submission,
+        'total_score': total_score,
+    }
+
+    return render(
+        request,
+        'onlinecourse/exam_result_bootstrap.html',
+        context
+    )
 
 # <HINT> Create an exam result view to check if learner passed exam and show their question results and result for each question,
 # you may implement it based on the following logic:
