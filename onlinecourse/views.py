@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.views import generic
 from django.contrib.auth import login, logout, authenticate
 import logging
+from .models import Course, Enrollment, Choice, Submission
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
 # Create your views here.
@@ -122,6 +123,40 @@ def extract_answers(request):
            choice_id = int(value)
            submitted_anwsers.append(choice_id)
    return submitted_anwsers
+
+
+def submit(request, course_id):
+    course = get_object_or_404(Course, pk=course_id)
+
+    user = request.user
+
+    enrollment = Enrollment.objects.get(
+        user=user,
+        course=course
+    )
+
+    # create submission
+    submission = Submission.objects.create(
+        enrollment=enrollment
+    )
+
+    # get selected choice IDs
+    choice_ids = extract_answers(request)
+
+    # convert IDs → Choice objects
+    choices = Choice.objects.filter(id__in=choice_ids)
+
+    # attach choices to submission (ManyToMany)
+    submission.choices.set(choices)
+
+    submission_id = submission.id
+
+    return redirect(
+        reverse(
+            'onlinecourse:exam_result',
+            args=(course_id, submission_id)
+        )
+    )
 
 
 # <HINT> Create an exam result view to check if learner passed exam and show their question results and result for each question,
